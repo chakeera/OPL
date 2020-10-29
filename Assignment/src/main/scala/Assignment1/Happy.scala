@@ -1,3 +1,5 @@
+package Assignment1
+
 import scala.collection.mutable.ListBuffer
 
 object Happy extends App {
