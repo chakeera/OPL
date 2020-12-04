@@ -1,0 +1,71 @@
+extern crate rayon;
+use rayon::prelude::*;
+use rayon::join;
+use std::fmt;
+use std::borrow::Borrow;
+
+struct Node {
+    left : Option<Box<Node>>,
+    original : u64,
+    right : Option<Box<Node>>
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({})", self.original)
+    }
+}
+
+// Learn parallel programming
+fn main() {
+    let v1 : Vec<u64> = vec![1,3,5,2];
+    let v2 : Vec<u64> = vec![0,3,3];
+    let v3 : Vec<u64> = vec!();
+    println!("{:?}, {:?}", &v1, parallel_prefix_sum(&v1));
+    println!("{:?}, {:?}", &v2, parallel_prefix_sum(&v2));
+    println!("{:?}, {:?}", &v3, parallel_prefix_sum(&v3));
+}
+fn cat(a: &[u64], b: &[u64]) -> Vec<u64> {
+    [a, b].concat()
+}
+fn parallel_prefix_sum(xs: &Vec<u64>) -> Vec<u64> {
+    fn tree_up(v: &Vec<u64>) -> Node {
+        if v.len() == 0 {
+            return Node {left: None, original: 0, right: None};
+        }
+        if v.len() == 1 {
+            return Node {left: None, original: v[0], right: None};
+        }
+        let (left, right) = v.split_at(v.len() / 2);
+
+        let (left_node, right_node) = join(|| tree_up(&left.clone().to_vec()), || tree_up(&right.clone().to_vec()));
+        let lv = left_node.original.clone();
+        let rv = right_node.original.clone();
+        Node{left: Some(Box::new(left_node)), original: lv+rv, right: Some(Box::new(right_node)) }
+    }
+    fn form_vector(p: &Option<Box<Node>>, acc : u64) -> Vec<u64> {
+        if p.is_none() {
+            vec!(0)
+        }
+        else
+        {
+            let node = p.as_ref().unwrap();
+            if node.left.is_some() && node.right.is_some() {
+                let (left_vec, right_vec) =
+                    join(|| form_vector(&node.left, acc - node.right.as_ref().unwrap().original),
+                         ||form_vector(&node.right, acc));
+                cat(&left_vec, &right_vec)
+            }else{
+                vec!(acc)
+            }
+        }
+    }
+    let tree = tree_up(&xs.clone());
+    let max = tree.original.clone();
+    let pps = form_vector( &Some(Box::new(tree)), max);
+    if xs.len() < 1 {
+        pps
+    }else{
+        cat(&*vec![0u64], &*pps)
+    }
+}
